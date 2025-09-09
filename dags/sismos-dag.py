@@ -9,12 +9,16 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
+LIMITE_REGISTROS = 1000
+MAGNITUD_MINIMA = 4.0
+OUTPUT_PATH = './output'
+SISMOS_DATA_PATH = './output/sismos_data.csv'
 
 # Configuración por defecto del DAG
 default_args = {
-    'owner': 'data_science_team',
+    'owner': 'Sebastian Arguello',
     'depends_on_past': False,
-    'start_date': datetime(2025, 9, 8),
+    'start_date': datetime.today() - timedelta(days=1),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 2,
@@ -26,9 +30,9 @@ dag = DAG(
     'earthquake_data_pipeline',
     default_args=default_args,
     description='Pipeline para extraer datos de sismos de USGS API',
-    schedule='@daily',  # Ejecutar diariamente
+    schedule=None,  
     catchup=False,
-    tags=['earthquakes', 'usgs', 'geoscience'],
+    tags=['earthquakes', 'usgs', 'geoscience', 'sismos'],
 )
 
 
@@ -36,7 +40,7 @@ def create_output_directory(**context):
     """
     Crear directorio output si no existe
     """
-    output_dir = Path('/tmp/output')
+    output_dir = Path(OUTPUT_PATH)
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Directorio de salida creado/verificado: {output_dir}")
     return str(output_dir)
@@ -57,8 +61,8 @@ def fetch_earthquake_data(**context):
         'format': 'geojson',
         'starttime': start_date.strftime('%Y-%m-%d'),
         'endtime': end_date.strftime('%Y-%m-%d'),
-        'minmagnitude': 4.0,
-        'limit': 1000,
+        'minmagnitude': MAGNITUD_MINIMA,
+        'limit': LIMITE_REGISTROS,
         'orderby': 'time'
     }
     
@@ -144,7 +148,6 @@ def process_earthquake_data(**context):
                 'event_type': properties.get('type'),
                 'network': properties.get('net'),
                 'updated': datetime.fromtimestamp(properties.get('updated', 0) / 1000.0) if properties.get('updated') else None,
-                'url': properties.get('url'),
                 'detail_url': properties.get('detail')
             }
             
@@ -187,9 +190,9 @@ def create_csv_file(**context):
         print(place_counts)
     
     # Definir ruta del archivo
-    output_dir = Path('/tmp/output')
+    output_dir = Path(OUTPUT_PATH)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'earthquakes_magnitude_4plus_{timestamp}.csv'
+    filename = f'Sismos_data_{timestamp}.csv'
     file_path = output_dir / filename
     
     # Guardar CSV
